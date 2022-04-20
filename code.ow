@@ -1,0 +1,1390 @@
+settings
+{
+	main
+	{
+		Description: "This is classical minesweeper game\r\n\r\nShoot to the closed cell to start the game. First shoot always opens cell with zero.\r\nUse 'Primary fire' to open cell, 'Secondary fire' to put flag or to open cells around opened cell.\r\nPress 'F' to teleport into the yellow zone and 'Crouch' to restart the game.\r\nAll other features you can find on left-top of screen. Enjoy ;)\r\n\r\nFill free to write to me btag: mnogom#2742\r\nhttps://github.com/mnogom/overwatch-minesweeper"
+		Mode Name: "Minesweeper"
+	}
+
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+		Map Rotation: Paused
+		Max Team 2 Players: 0
+		Return To Lobby: Never
+	}
+
+	modes
+	{
+		disabled Elimination
+		{
+			Capture Objective Tiebreaker: Off
+			Score To Win: 9
+		}
+
+		Skirmish
+		{
+			enabled maps
+			{
+				Workshop Expanse Night
+			}
+		}
+
+		disabled Team Deathmatch
+		{
+			Game Length In Minutes: 15
+		}
+
+		General
+		{
+			Game Mode Start: Immediately
+			Hero Limit: Off
+			Respawn Time Scalar: 0%
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Pharah
+			{
+				Concussive Blast Cooldown Time: 0%
+				Hover Jets Maximum Time: 500%
+				Hover Jets Recharge Rate: 500%
+				Hover Jets Unlimited Fuel: On
+				Jump Jet Cooldown Time: 0%
+				Ultimate Ability Barrage: Off
+			}
+
+			enabled heroes
+			{
+				Pharah
+			}
+		}
+	}
+
+	extensions
+	{
+		Beam Sounds
+		Buff and Debuff Sounds
+		Energy Explosion Effects
+		Explosion Sounds
+		Play More Effects
+	}
+}
+
+variables
+{
+	global:
+		0: fieldXSize
+		1: fieldZSize
+		2: minesCount
+		3: projectileHiddenPosition
+		4: stepX
+		5: stepZ
+		6: indexOfMissedHit
+		7: mineNumber
+		8: colorOfNumbers
+		9: projectileTypeOpen
+		10: projectileTypeFlag
+		11: projectileColorByTypes
+		12: projectileSpeed
+		13: fieldCellsClosed
+		14: fieldCellsFlagged
+		15: firstOpenCellIndex
+		16: startX
+		17: startZ
+		18: fieldCoordinates
+		19: __________________cellStateClose
+		20: field
+		21: countOfInitedMines
+		22: safeZoneIndexes
+		27: i
+		28: j
+		29: _randomizedCoordinates
+		30: _tempCell
+		32: timerValue
+		33: flagCount
+		34: currentGameState
+		35: gameStateNotStarted
+		36: gameStateInProgress
+		37: gameStateLost
+		38: gameStateWin
+		39: gameStateInit
+		40: cellStateOpen
+		41: killer
+		42: fieldCellsWithMines
+		43: _tempHudText
+		44: calculating
+		45: countOfClosedCells
+		46: resetButtonCoord
+		47: mistakeCell
+		48: minMinesCount
+		49: maxMinesCount
+		50: flagButtonCoord
+		51: winsCount
+		52: losesCount
+		53: personalBestTime
+		54: relStatsCoord
+		55: _textCoord
+		57: text
+
+	player:
+		0: projectileCurrentPosition
+		1: projectileEndPosition
+		2: projectileHitIndex
+		3: __sr_tempMinDistance
+		4: __sr_tempDistances
+		5: _notFlaggedNeigbors
+		6: canShootProjectile
+		7: touchedMine
+		9: cameraTopActivated
+		11: _analizedCellsStack
+		14: _cellsToOpenStack
+		21: getNeighborsIndexesOut
+		22: getNeighborsIndexesArg
+		23: __sr_TempCoord
+		24: __sr_i
+		25: __sr_j
+		27: projectileCurrentType
+		28: _fieldCellNumber
+		33: _cellToAdd
+		35: _cellToOpen
+}
+
+subroutines
+{
+	0: getNeighborsIndexes
+	1: _openSingleCell
+	2: flagCell
+	3: findProjectileHitIndex
+	4: generateField
+	5: _openStackCell
+	6: openCell
+	7: showAllMines
+	8: dropStats
+}
+
+rule("Init game states")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.gameStateNotStarted = 0;
+		Global.gameStateInProgress = 1;
+		Global.gameStateLost = 2;
+		Global.gameStateWin = 3;
+		"Set initial state"
+		Global.currentGameState = Global.gameStateInit;
+	}
+}
+
+rule("Global init global vars")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		"Field size / Mines count Default: 10x10x18"
+		Global.fieldXSize = 10;
+		Global.fieldZSize = 10;
+		Global.minesCount = 15;
+		Global.minMinesCount = 1;
+		Global.maxMinesCount = Global.fieldXSize * Global.fieldZSize - 9;
+		"Field coords"
+		Global.stepX = 4;
+		Global.stepZ = Global.stepX;
+		Global.startX = 2;
+		Global.startZ = 2;
+		"Cell states"
+		Global.cellStateOpen = 2;
+		"Cells global vars"
+		Global.mineNumber = -1;
+		Global.colorOfNumbers = Array(Custom Color(0, 0, 0, 128), Custom Color(0, 0, 255, 255), Custom Color(0, 255, 0, 255), Custom Color(
+			255, 0, 0, 255), Custom Color(0, 0, 127, 255), Custom Color(127, 0, 0, 255), Custom Color(0, 127, 127, 255), Custom Color(0, 0,
+			63, 255), Custom Color(63, 0, 0, 255));
+		"Projectile global vars"
+		Global.projectileTypeOpen = 0;
+		Global.projectileTypeFlag = 1;
+		Global.projectileColorByTypes = Array(Color(Blue), Color(Red));
+		Global.projectileSpeed = 100;
+		Global.projectileHiddenPosition = Vector(0, -100, 0);
+		Global.indexOfMissedHit = -1;
+		"Modify game state"
+		Global.currentGameState = Global.gameStateNotStarted;
+		"Game stats"
+		Global.personalBestTime = 999;
+		Global.winsCount = 0;
+		Global.losesCount = 0;
+	}
+}
+
+disabled rule("Game state init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Create hints")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} -> open cell", Input Binding String(Button(Primary Fire))),
+			Custom String(" "), Left, 1, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} on close cell -> flag cell", Input Binding String(Button(
+			Secondary Fire))), Custom String(" "), Left, 2, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} on open cell -> open neighbors", Input Binding String(Button(
+			Secondary Fire))), Custom String(" "), Left, 3, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} -> Bird's-eye view", Input Binding String(Button(Melee))),
+			Custom String(" "), Left, 4, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} in {1} -> Reset game", Input Binding String(Button(Crouch)),
+			Icon String(Happy)), Custom String(" "), Left, 5, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} -> teleport to {1}", Input Binding String(Button(Interact)),
+			Icon String(Happy)), Custom String(" "), Left, 6, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} on {1} -> increase mines", Input Binding String(Button(Jump)),
+			Icon String(Flag)), Custom String(" "), Left, 7, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("{0} on {1} -> decrease mines", Input Binding String(Button(Crouch)),
+			Icon String(Flag)), Custom String(" "), Left, 8, Color(White), Color(White), Color(White), Visible To and String,
+			Default Visibility);
+	}
+}
+
+rule("Level")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Create HUD Text(All Players(All Teams), Custom String("rookie (15 {0})", Icon String(Flag)), Null, Null, Right, 1,
+			Global.minesCount == 15 ? Color(Green) : Color(White), Null, Null, Visible To and Color, Default Visibility);
+		Create HUD Text(All Players(All Teams), Custom String("amateur (17 {0})", Icon String(Flag)), Null, Null, Right, 2,
+			Global.minesCount == 17 ? Color(Green) : Color(White), Null, Null, Visible To and Color, Default Visibility);
+		Create HUD Text(All Players(All Teams), Custom String("expert (20 {0})", Icon String(Flag)), Null, Null, Right, 3,
+			Global.minesCount == 20 ? Color(Green) : Color(White), Null, Null, Visible To and Color, Default Visibility);
+	}
+}
+
+rule("Drop lose condition")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Event Player.touchedMine = False;
+	}
+}
+
+rule("Drop timer")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Stop Chasing Global Variable(timerValue);
+		Global.timerValue = 0;
+	}
+}
+
+rule("Drop flag counter")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Global.flagCount = 0;
+	}
+}
+
+rule("Meshgrid field coordinates (fieldCoordinates, fieldCloseCells)")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Global.fieldCellsClosed = Empty Array;
+		"Create coordinates for field"
+		Global.fieldCoordinates = Empty Array;
+		For Global Variable(i, 0, Global.fieldXSize, 1);
+			For Global Variable(j, 0, Global.fieldZSize, 1);
+				Modify Global Variable(fieldCoordinates, Append To Array, Vector(Global.startX + Global.i * Global.stepX, 0,
+					Global.startZ + Global.j * Global.stepZ));
+				"v2. Close cell is cloud"
+				Create Effect(All Players(All Teams), Cloud, Color(White), Last Of(Global.fieldCoordinates), 3, Visible To);
+				Modify Global Variable(fieldCellsClosed, Append To Array, Last Created Entity);
+			End;
+		End;
+		"v1. Close cell without effects"
+		disabled Global.fieldCellsClosed = Mapped Array(Global.field, Global.__________________cellStateClose);
+		Global.countOfClosedCells = Count Of(Global.fieldCoordinates);
+	}
+}
+
+rule("Create field UI")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		"Reset button"
+		Global.resetButtonCoord = Vector(Global.startX - 10, 0, Global.startZ + (Global.fieldZSize * Global.stepZ - Global.stepZ) / 2);
+		Create Icon(All Players(All Teams), Global.resetButtonCoord, Happy, Visible To, Color(Yellow), False);
+		Create Effect(All Players(All Teams), Sphere, Color(Yellow), Global.resetButtonCoord, Global.stepZ, Visible To);
+		"Timer"
+		Create Icon(All Players(All Teams), Global.resetButtonCoord + Vector(4, 2, -6), Ring Thick, Visible To, Color(White), False);
+		Create In-World Text(All Players(All Teams), Custom String("{0}", Round To Integer(Global.timerValue, Up)),
+			Global.resetButtonCoord + Vector(4, 1, -6), 2, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+		Create Effect(All Players(All Teams), Sphere, Color(White), Global.resetButtonCoord + Vector(4, 0, -6), Global.stepZ / 2,
+			Visible To);
+		"Flag counter"
+		Global.flagButtonCoord = Global.resetButtonCoord + Vector(4, 0, 6);
+		Create Icon(All Players(All Teams), Global.flagButtonCoord + Vector(0, 2, 0), Flag, Visible To, Color(Red), False);
+		Create In-World Text(All Players(All Teams), Custom String("{0}", Global.minesCount - Global.flagCount, Global.minesCount),
+			Global.flagButtonCoord + Vector(0, 1, 0), 2, Clip Against Surfaces, Visible To and String, Color(Red), Default Visibility);
+		Create Effect(All Players(All Teams), Sphere, Color(Red), Global.resetButtonCoord + Vector(4, 0, 6), Global.stepZ / 2, Visible To);
+		"Generate arena"
+		Create Beam Effect(All Players(All Teams), Good Beam, Vector(Global.startX - Global.stepX / 2, 0.500,
+			Global.startZ - Global.stepZ / 2), Vector(Global.startX - Global.stepX / 2 + Global.fieldXSize * Global.stepX, 0.500,
+			Global.startZ - Global.stepZ / 2), Color(White), Visible To Position and Radius);
+		Create Beam Effect(All Players(All Teams), Good Beam, Vector(Global.startX - Global.stepX / 2, 0.500,
+			Global.startZ - Global.stepZ / 2), Vector(Global.startX - Global.stepX / 2, 0.500,
+			Global.startZ - Global.stepZ / 2 + Global.fieldZSize * Global.stepZ), Color(White), Visible To Position and Radius);
+		Create Beam Effect(All Players(All Teams), Good Beam, Vector(Global.startX - Global.stepX / 2 + Global.fieldXSize * Global.stepX,
+			0.500, Global.startZ - Global.stepZ / 2 + Global.fieldZSize * Global.stepZ), Vector(
+			Global.startX - Global.stepX / 2 + Global.fieldXSize * Global.stepX, 0.500, Global.startZ - Global.stepZ / 2), Color(White),
+			Visible To Position and Radius);
+		Create Beam Effect(All Players(All Teams), Good Beam, Vector(Global.startX - Global.stepX / 2 + Global.fieldXSize * Global.stepX,
+			0.500, Global.startZ - Global.stepZ / 2 + Global.fieldZSize * Global.stepZ), Vector(Global.startX - Global.stepX / 2, 0.500,
+			Global.startZ - Global.stepZ / 2 + Global.fieldZSize * Global.stepZ), Color(White), Visible To Position and Radius);
+	}
+}
+
+rule("Stats")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		"Reset button"
+		Global.relStatsCoord = Vector(Global.startX + Global.fieldXSize * Global.stepX + 2, 0, Global.startZ + (
+			Global.fieldZSize * Global.stepZ - Global.stepZ) / 2);
+		Create In-World Text(All Players(All Teams), Custom String("Count of {0}: {1}", Icon String(Flag), Global.minesCount),
+			Global.relStatsCoord + Vector(0, 8, 0), 2, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+		Create In-World Text(All Players(All Teams), Custom String("Wins count: {0}", Global.winsCount), Global.relStatsCoord + Vector(0,
+			6, 0), 2, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+		Create In-World Text(All Players(All Teams), Custom String("Win rate: {0} %", Global.winsCount == 0 ? 0 : Global.winsCount / (
+			Global.winsCount + Global.losesCount) * 100), Global.relStatsCoord + Vector(0, 4, 0), 2, Clip Against Surfaces,
+			Visible To and String, Color(White), Default Visibility);
+		Create In-World Text(All Players(All Teams), Custom String("Personal best: {0} sec", Global.personalBestTime),
+			Global.relStatsCoord + Vector(0, 2, 0), 2, Clip Against Surfaces, Visible To and String, Color(White), Default Visibility);
+	}
+}
+
+rule("Init projectiles")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Event Player.canShootProjectile = True;
+		"Disable default action"
+		Set Primary Fire Enabled(Event Player, False);
+		Set Secondary Fire Enabled(Event Player, False);
+		"Init projectile"
+		Event Player.projectileCurrentPosition = Global.projectileHiddenPosition;
+		Create Effect(All Players(All Teams), Orb, Global.projectileColorByTypes[Event Player.projectileCurrentType],
+			Event Player.projectileCurrentPosition, 1, Visible To Position Radius and Color);
+	}
+}
+
+rule("Game states // Switch state after init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInit;
+	}
+
+	actions
+	{
+		Global.currentGameState = Global.gameStateNotStarted;
+	}
+}
+
+disabled rule(">>> Start Player interactions")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Player init interraction with field (Shoot projectile)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.calculating == False;
+		Event Player.canShootProjectile == True;
+		(Is Button Held(Event Player, Button(Primary Fire)) || Is Button Held(Event Player, Button(Secondary Fire))) == True;
+	}
+
+	actions
+	{
+		Event Player.projectileHitIndex = Global.indexOfMissedHit;
+		"Set projectile type"
+		If(Global.currentGameState == Global.gameStateInProgress);
+			Event Player.projectileCurrentType = Is Button Held(Event Player, Button(Primary Fire))
+				== True ? Global.projectileTypeOpen : Global.projectileTypeFlag;
+		Else;
+			Event Player.projectileCurrentType = Global.projectileTypeOpen;
+		End;
+		"Shoot projectile"
+		Event Player.projectileCurrentPosition = Eye Position(Event Player);
+		Event Player.projectileEndPosition = Ray Cast Hit Position(Eye Position(Event Player), Eye Position(Event Player)
+			+ Facing Direction Of(Event Player) * 100, Null, Event Player, False);
+		Chase Player Variable At Rate(Event Player, projectileCurrentPosition, Event Player.projectileEndPosition, Global.projectileSpeed,
+			Destination and Rate);
+		Event Player.canShootProjectile = False;
+		"Play sound"
+		If(Event Player.projectileCurrentType == Global.projectileTypeOpen);
+			Play Effect(All Players(All Teams), Pharah Rocket Launcher Explosion Sound, Color(White), Position Of(Event Player), 100);
+		Else;
+			Play Effect(All Players(All Teams), Pharah Concussive Blast Sound, Color(White), Position Of(Event Player), 100);
+		End;
+	}
+}
+
+disabled rule("Game state not started")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Decrease mineCount")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateNotStarted;
+		Global.minesCount > Global.minMinesCount;
+		Is Crouching(Event Player) == True;
+		Distance Between(Global.flagButtonCoord, Position Of(Event Player)) <= Global.stepZ;
+	}
+
+	actions
+	{
+		Global.minesCount -= 1;
+		Call Subroutine(dropStats);
+	}
+}
+
+rule("Increase mineCount")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateNotStarted;
+		Global.minesCount < Global.maxMinesCount;
+		Is Jumping(Event Player) == True;
+		Distance Between(Global.flagButtonCoord, Position Of(Event Player)) <= Global.stepZ;
+	}
+
+	actions
+	{
+		Global.minesCount += 1;
+		Call Subroutine(dropStats);
+	}
+}
+
+rule("Player open first cell")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateNotStarted;
+		Y Component Of(Event Player.projectileCurrentPosition) == 0;
+		Global.calculating == False;
+	}
+
+	actions
+	{
+		Call Subroutine(findProjectileHitIndex);
+		If(Event Player.projectileHitIndex != Global.indexOfMissedHit);
+			Call Subroutine(generateField);
+			"This subroutine will called in another game state after switching it"
+			Call Subroutine(openCell);
+			Global.currentGameState = Global.gameStateInProgress;
+		End;
+		"Reload possibility to shoot projectile"
+		Event Player.canShootProjectile = True;
+		Event Player.projectileHitIndex = Global.indexOfMissedHit;
+	}
+}
+
+disabled rule("Game in progress")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Start timer")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInProgress;
+	}
+
+	actions
+	{
+		Chase Global Variable Over Time(timerValue, 999, 999, Destination and Duration);
+	}
+}
+
+rule("Player open any cell")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateInProgress;
+		Y Component Of(Event Player.projectileCurrentPosition) == 0;
+	}
+
+	actions
+	{
+		Call Subroutine(findProjectileHitIndex);
+		If(Event Player.projectileHitIndex != Global.indexOfMissedHit);
+			If(Event Player.projectileCurrentType == Global.projectileTypeOpen);
+				Call Subroutine(openCell);
+			Else;
+				Call Subroutine(flagCell);
+			End;
+		End;
+		"Reload possibility to shoot projectile"
+		Event Player.canShootProjectile = True;
+		Event Player.projectileHitIndex = Global.indexOfMissedHit;
+	}
+}
+
+rule("Win condition check")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.touchedMine == False;
+		Global.currentGameState == Global.gameStateInProgress;
+		Global.countOfClosedCells == Global.minesCount;
+	}
+
+	actions
+	{
+		Global.currentGameState = Global.gameStateWin;
+	}
+}
+
+rule("Lose condition check")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.touchedMine == True;
+		Global.currentGameState == Global.gameStateInProgress;
+	}
+
+	actions
+	{
+		Global.killer = Event Player;
+		Global.currentGameState = Global.gameStateLost;
+	}
+}
+
+disabled rule("Game state lost")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Stop timer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateLost;
+	}
+
+	actions
+	{
+		Stop Chasing Global Variable(timerValue);
+	}
+}
+
+rule("Show mines")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateLost;
+	}
+
+	actions
+	{
+		Call Subroutine(showAllMines);
+	}
+}
+
+rule("Kill player / Add lose")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateLost;
+	}
+
+	actions
+	{
+		Play Effect(All Players(All Teams), DVa Self Destruct Explosion Sound, Color(White), Global.fieldCoordinates[Global.mistakeCell],
+			999);
+		Wait(0.400, Ignore Condition);
+		Play Effect(All Players(All Teams), Bad Explosion, Color(Red), Global.fieldCoordinates[Global.mistakeCell], 999);
+		Wait(0.100, Ignore Condition);
+		Kill(Event Player, Global.killer);
+		Wait(1, Ignore Condition);
+		Resurrect(Event Player);
+		Teleport(Event Player, Global.resetButtonCoord);
+		Set Facing(Event Player, Vector(0, 0, 0), To World);
+		Global.losesCount += 1;
+	}
+}
+
+disabled rule("Game state win")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("End round / Add win")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateWin;
+	}
+
+	actions
+	{
+		Play Effect(All Players(All Teams), Good Explosion, Color(White), Global.resetButtonCoord, 999);
+		Play Effect(All Players(All Teams), Buff Impact Sound, Color(White), Global.resetButtonCoord, 999);
+		Global.winsCount += 1;
+		Big Message(All Players(All Teams), Custom String("You win! Good job!"));
+	}
+}
+
+rule("Stop timer / Check PB")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState == Global.gameStateWin;
+	}
+
+	actions
+	{
+		Stop Chasing Global Variable(timerValue);
+		If(Global.timerValue < Global.personalBestTime);
+			Global.personalBestTime = Global.timerValue;
+		End;
+	}
+}
+
+disabled rule("Common restart rule for game states")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Teleport to yellow zone")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Button(Interact)) == True;
+	}
+
+	actions
+	{
+		Teleport(Event Player, Global.resetButtonCoord);
+		Set Facing(Event Player, Vector(0, 0, 0), To World);
+	}
+}
+
+rule("Toggle camera")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Meleeing(Event Player) == True;
+	}
+
+	actions
+	{
+		If(Event Player.cameraTopActivated == True);
+			Event Player.cameraTopActivated = False;
+			Stop Camera(Event Player);
+		Else;
+			Event Player.cameraTopActivated = True;
+			Start Camera(Event Player, Update Every Frame(Position Of(Event Player) + Vector(0, 10, 0)), Update Every Frame(Position Of(
+				Event Player)), 0);
+		End;
+	}
+}
+
+rule("Restart")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.currentGameState != Global.gameStateInit;
+		Global.currentGameState != Global.gameStateNotStarted;
+		Global.calculating == False;
+		Is Crouching(Event Player) == True;
+		Distance Between(Global.resetButtonCoord, Position Of(Event Player)) <= Global.stepZ;
+	}
+
+	actions
+	{
+		Destroy All Effects;
+		Destroy All HUD Text;
+		Destroy All Icons;
+		Destroy All In-World Text;
+		If(Global.currentGameState == Global.gameStateInProgress);
+			Global.losesCount += 1;
+		End;
+		Global.currentGameState = Global.gameStateNotStarted;
+	}
+}
+
+disabled rule("Subroutines")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Generate field")
+{
+	event
+	{
+		Subroutine;
+		generateField;
+	}
+
+	actions
+	{
+		Global.calculating = True;
+		"Find first hitted cell"
+		Global.firstOpenCellIndex = Event Player.projectileHitIndex;
+		"Create zone of zeroes"
+		Event Player.getNeighborsIndexesArg = Global.firstOpenCellIndex;
+		Call Subroutine(getNeighborsIndexes);
+		Global.safeZoneIndexes = Event Player.getNeighborsIndexesOut;
+		Modify Global Variable(safeZoneIndexes, Append To Array, Global.firstOpenCellIndex);
+		"Create random mines position (index of coords) and place on field"
+		Global._randomizedCoordinates = Randomized Array(Global.fieldCoordinates);
+		Global.countOfInitedMines = 0;
+		Global.field = Empty Array;
+		Global.fieldCellsWithMines = Empty Array;
+		Global.i = 0;
+		Create Progress Bar HUD Text(All Players(All Teams), Global.countOfInitedMines, Custom String("Generate mines pattern"), Top, 0,
+			Color(White), Color(White), Visible To and Values, Default Visibility);
+		While(Global.countOfInitedMines < Global.minesCount);
+			":: temp cell - real index in fieldCoordinate of randomized fieldCoordinate value"
+			Global._tempCell = Index Of Array Value(Global.fieldCoordinates, Global._randomizedCoordinates[Global.i]);
+			If(Index Of Array Value(Global.safeZoneIndexes, Global._tempCell) == -1);
+				Global.field[Global._tempCell] = Global.mineNumber;
+				Modify Global Variable(fieldCellsWithMines, Append To Array, Global._tempCell);
+				Global.countOfInitedMines += 1;
+			End;
+			Global.i += 1;
+			Wait(0.010, Ignore Condition);
+		End;
+		Destroy Progress Bar HUD Text(Last Text ID);
+		"Fill field by numbers"
+		Global.i = 0;
+		Create Progress Bar HUD Text(All Players(All Teams), Global.i, Custom String("Fill field with numbers"), Top, 0, Color(White),
+			Color(White), Visible To and Values, Default Visibility);
+		For Global Variable(i, 0, Count Of(Global.fieldCoordinates), 1);
+			If(Global.field[Global.i] != Global.mineNumber);
+				Global.field[Global.i] = 0;
+				"Find all neighbors of cell"
+				Event Player.getNeighborsIndexesArg = Global.i;
+				Call Subroutine(getNeighborsIndexes);
+				Global.field[Global.i] = Count Of(Filtered Array(Event Player.getNeighborsIndexesOut,
+					Global.field[Current Array Element] == Global.mineNumber));
+			End;
+			Wait(0.010, Ignore Condition);
+		End;
+		Destroy Progress Bar HUD Text(Last Text ID);
+		Global.calculating = False;
+		"Create empty flagged field array"
+		Global.fieldCellsFlagged = Empty Array;
+	}
+}
+
+rule("getNeighbors(getNeighborsArg)")
+{
+	event
+	{
+		Subroutine;
+		getNeighborsIndexes;
+	}
+
+	actions
+	{
+		Event Player.getNeighborsIndexesOut = Empty Array;
+		For Player Variable(Event Player, __sr_i, -1, 2, 1);
+			For Player Variable(Event Player, __sr_j, -1, 2, 1);
+				Event Player.__sr_TempCoord = Global.fieldCoordinates[Event Player.getNeighborsIndexesArg] + Vector(
+					Event Player.__sr_i * Global.stepX, 0, Event Player.__sr_j * Global.stepZ);
+				If(Event Player.__sr_TempCoord != Global.fieldCoordinates[Event Player.getNeighborsIndexesArg]);
+					If(Index Of Array Value(Global.fieldCoordinates, Event Player.__sr_TempCoord) != -1);
+						Modify Player Variable(Event Player, getNeighborsIndexesOut, Append To Array, Index Of Array Value(Global.fieldCoordinates,
+							Event Player.__sr_TempCoord));
+					End;
+				End;
+			End;
+		End;
+		Event Player.getNeighborsIndexesArg = Null;
+		"Debug // showw neigbors"
+		disabled For Player Variable(Event Player, __sr_i, 0, Count Of(Event Player.getNeighborsIndexesOut), 1);
+		disabled Create Effect(All Players(All Teams), Sphere, Color(White),
+			Global.fieldCoordinates[Event Player.getNeighborsIndexesOut[Event Player.__sr_i]], 1, Visible To);
+		disabled End;
+	}
+}
+
+rule("Find hitted index of field by projectile")
+{
+	event
+	{
+		Subroutine;
+		findProjectileHitIndex;
+	}
+
+	actions
+	{
+		"Find index of nearest to hit coordinate"
+		Event Player.__sr_tempDistances = Mapped Array(Global.fieldCoordinates, Distance Between(Event Player.projectileEndPosition,
+			Current Array Element));
+		Event Player.__sr_tempMinDistance = First Of(Sorted Array(Event Player.__sr_tempDistances, Current Array Element));
+		"If projectile hit field (check value of distance between hitted coord and closest cell coord)"
+		Event Player.projectileHitIndex = Global.indexOfMissedHit;
+		If(Event Player.__sr_tempMinDistance <= Global.stepX / 2);
+			Event Player.projectileHitIndex = Index Of Array Value(Event Player.__sr_tempDistances, Event Player.__sr_tempMinDistance);
+		End;
+		"Clean up"
+		Event Player.__sr_tempDistances = Null;
+		Event Player.__sr_tempMinDistance = Null;
+	}
+}
+
+rule("Open cell")
+{
+	event
+	{
+		Subroutine;
+		openCell;
+	}
+
+	actions
+	{
+		Event Player._cellToOpen = Event Player.projectileHitIndex;
+		If(Global.field[Event Player._cellToOpen] == 0);
+			Call Subroutine(_openStackCell);
+		Else;
+			Call Subroutine(_openSingleCell);
+		End;
+	}
+}
+
+rule("_Open stack cells")
+{
+	event
+	{
+		Subroutine;
+		_openStackCell;
+	}
+
+	actions
+	{
+		Global.calculating = True;
+		Create HUD Text(All Players(All Teams), Custom String("Wait"), Null, Null, Top, 0, Color(White), Color(White), Color(White),
+			Visible To, Default Visibility);
+		Global._tempHudText = Last Text ID;
+		"Create stack"
+		Event Player._cellsToOpenStack = Array(Event Player._cellToOpen);
+		Event Player._analizedCellsStack = Empty Array;
+		"Recursion out"
+		While(Count Of(Event Player._cellsToOpenStack) != 0);
+			"Pop first element"
+			Event Player._cellToOpen = Event Player._cellsToOpenStack[0];
+			Modify Player Variable(Event Player, _cellsToOpenStack, Remove From Array By Index, 0);
+			Modify Player Variable(Event Player, _analizedCellsStack, Append To Array, Event Player._cellToOpen);
+			"Open current cell"
+			Call Subroutine(_openSingleCell);
+			"Find neighbors of cell"
+			Event Player.getNeighborsIndexesArg = Event Player._cellToOpen;
+			Call Subroutine(getNeighborsIndexes);
+			"Check if need to open neigbor"
+			For Player Variable(Event Player, __sr_i, 0, Count Of(Event Player.getNeighborsIndexesOut), 1);
+				Event Player._cellToAdd = Event Player.getNeighborsIndexesOut[Event Player.__sr_i];
+				"If cell is closed and not flagged"
+				If(
+					Global.fieldCellsClosed[Event Player._cellToAdd] != Global.cellStateOpen && Global.fieldCellsFlagged[Event Player._cellToAdd] == Null);
+					"If (value of cell == 0) => add to stack => else => open single cell"
+					If(Global.field[Event Player._cellToAdd] == 0);
+						"If cell to add wasn't analized and not in current stack to open"
+						If(Index Of Array Value(Event Player._analizedCellsStack, Event Player._cellToAdd) == -1 && Index Of Array Value(
+							Event Player._cellsToOpenStack, Event Player._cellToAdd) == -1);
+							Modify Player Variable(Event Player, _cellsToOpenStack, Append To Array, Event Player._cellToAdd);
+						End;
+					Else;
+						Event Player._cellToOpen = Event Player._cellToAdd;
+						Call Subroutine(_openSingleCell);
+					End;
+				End;
+			End;
+			Wait(0.010, Ignore Condition);
+		End;
+		Destroy HUD Text(Global._tempHudText);
+		Global.calculating = False;
+	}
+}
+
+rule("_Open single cell")
+{
+	event
+	{
+		Subroutine;
+		_openSingleCell;
+	}
+
+	actions
+	{
+		"Ignore flagged cell"
+		If(Global.fieldCellsFlagged[Event Player._cellToOpen] != Null);
+			Abort;
+		End;
+		"Touch mine"
+		If(Global.field[Event Player._cellToOpen] == Global.mineNumber);
+			Global.mistakeCell = Event Player._cellToOpen;
+			Event Player.touchedMine = True;
+			Abort;
+		End;
+		"Open cell"
+		If(Global.fieldCellsClosed[Event Player._cellToOpen] != Global.cellStateOpen);
+			Global.countOfClosedCells -= 1;
+			"v2. Close cell is cloud"
+			Destroy Effect(Global.fieldCellsClosed[Event Player._cellToOpen]);
+			"v1 / v2"
+			Global.fieldCellsClosed[Event Player._cellToOpen] = Global.cellStateOpen;
+			"Create cell"
+			Event Player._fieldCellNumber = Global.field[Event Player._cellToOpen];
+			If(Event Player._fieldCellNumber != 0);
+				Create In-World Text(All Players(All Teams), Event Player._fieldCellNumber, Update Every Frame(Evaluate Once(
+					Global.fieldCoordinates[Event Player._cellToOpen]) + Cross Product(World Vector Of(Left, Local Player, Rotation), Normalize(
+					Evaluate Once(Global.fieldCoordinates[Event Player._cellToOpen]) - Eye Position(Local Player))) * (Y Component Of(Eye Position(
+					Local Player)) * (4 / 50) + Dot Product(World Vector Of(Forward, Local Player, Rotation), Evaluate Once(
+					Global.fieldCoordinates[Event Player._cellToOpen]) - Position Of(Local Player)) * (1 / 40))), 2, Do Not Clip,
+					Visible To and Position, Global.colorOfNumbers[Event Player._fieldCellNumber], Default Visibility);
+			End;
+			"v1. Close cell without effects"
+			disabled Create Effect(All Players(All Teams), Ring, Color(Gray), Global.fieldCoordinates[Event Player._cellToOpen], Global.stepX / 2,
+				None);
+		End;
+	}
+}
+
+rule("Toggle flag cell / special open cell")
+{
+	event
+	{
+		Subroutine;
+		flagCell;
+	}
+
+	actions
+	{
+		If(Global.fieldCellsClosed[Event Player.projectileHitIndex] != Global.cellStateOpen);
+			If(Global.fieldCellsFlagged[Event Player.projectileHitIndex] == Null);
+				"place flag"
+				disabled Create Icon(All Players(All Teams), Global.fieldCoordinates[Event Player.projectileHitIndex], Flag, Visible To, Color(Red), False);
+				"place flag"
+				Create Icon(All Players(All Teams), Update Every Frame(Evaluate Once(Global.fieldCoordinates[Event Player.projectileHitIndex])
+					+ Cross Product(World Vector Of(Left, Local Player, Rotation), Normalize(Evaluate Once(
+					Global.fieldCoordinates[Event Player.projectileHitIndex]) - Eye Position(Local Player))) * (Y Component Of(Eye Position(
+					Local Player)) * (4 / 50) + Dot Product(World Vector Of(Forward, Local Player, Rotation), Evaluate Once(
+					Global.fieldCoordinates[Event Player.projectileHitIndex]) - Position Of(Local Player)) * (1 / 40))), Flag,
+					Visible To and Position, Color(Red), False);
+				Global.fieldCellsFlagged[Event Player.projectileHitIndex] = Last Created Entity;
+				Global.flagCount += 1;
+			Else;
+				"Hide flag"
+				Destroy Icon(Global.fieldCellsFlagged[Event Player.projectileHitIndex]);
+				Global.fieldCellsFlagged[Event Player.projectileHitIndex] = Null;
+				Global.flagCount -= 1;
+			End;
+		End;
+		"Special open"
+		If(Global.fieldCellsClosed[Event Player.projectileHitIndex] == Global.cellStateOpen);
+			Event Player.getNeighborsIndexesArg = Event Player.projectileHitIndex;
+			Call Subroutine(getNeighborsIndexes);
+			Event Player._notFlaggedNeigbors = Filtered Array(Event Player.getNeighborsIndexesOut,
+				Global.fieldCellsFlagged[Current Array Element] == Null);
+			If(Count Of(Event Player.getNeighborsIndexesOut) - Count Of(Event Player._notFlaggedNeigbors)
+				>= Global.field[Event Player.projectileHitIndex]);
+				Event Player._cellToOpen = Event Player.projectileHitIndex;
+				Call Subroutine(_openStackCell);
+			End;
+		End;
+	}
+}
+
+rule("Show all mines")
+{
+	event
+	{
+		Subroutine;
+		showAllMines;
+	}
+
+	actions
+	{
+		"Mark mistake"
+		Create Effect(All Players(All Teams), Ring, Color(Red), Global.fieldCoordinates[Global.mistakeCell], Global.stepX, Visible To);
+		"Show all mines"
+		For Global Variable(i, 0, Count Of(Global.fieldCellsWithMines), 1);
+			Global._tempCell = Global.fieldCellsWithMines[Global.i];
+			If(Global.fieldCellsFlagged[Global._tempCell] != Null);
+				Create Effect(All Players(All Teams), Ring, Color(Green), Global.fieldCoordinates[Global._tempCell], Global.stepX / 2, Visible To);
+			Else;
+				Create Icon(All Players(All Teams), Global.fieldCoordinates[Global._tempCell], Arrow: Down, Visible To, Color(Red), False);
+				Create Effect(All Players(All Teams), Ring, Color(Red), Global.fieldCoordinates[Global._tempCell], Global.stepX / 2, Visible To);
+			End;
+		End;
+	}
+}
+
+rule("Drop stats")
+{
+	event
+	{
+		Subroutine;
+		dropStats;
+	}
+
+	actions
+	{
+		"Drop game stats"
+		Global.personalBestTime = 999;
+		Global.winsCount = 0;
+		Global.losesCount = 0;
+	}
+}
+
+disabled rule("<<< Stop Player interactions")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Destroy projectile")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.projectileCurrentPosition == Event Player.projectileEndPosition;
+	}
+
+	actions
+	{
+		"Play sound"
+		Play Effect(All Players(All Teams), Pharah Rocket Launcher Explosion Sound, Color(White), Event Player.projectileCurrentPosition,
+			100);
+		"Hide projectile after it hits barrier"
+		Stop Chasing Player Variable(Event Player, projectileCurrentPosition);
+		Event Player.projectileCurrentPosition = Global.projectileHiddenPosition;
+		"Reload possibility to shoot projectile"
+		Event Player.canShootProjectile = True;
+	}
+}
+
+disabled rule("Snippet")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+disabled rule("Recalculate position of text / icon")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global._textCoord = Vector(-2, 0, -2);
+		Create In-World Text(All Players(All Teams), Custom String("I "), Global._textCoord, 4, Clip Against Surfaces,
+			Visible To Position and String, Color(Gray), Default Visibility);
+		Global.text = Last Text ID;
+		disabled Create Beam Effect(All Players(All Teams), Good Beam, Global._textCoord, Update Every Frame(Position Of(Local Player)), Color(
+			White), Visible To Position and Radius);
+		disabled Create In-World Text(All Players(All Teams), Custom String("0"), Update Every Frame(Eye Position(Local Player) + (
+			Global._textCoord - Eye Position(Local Player)) / 2), 4, Do Not Clip, Visible To Position and String, Color(White),
+			Default Visibility);
+		disabled Create In-World Text(All Players(All Teams), Custom String("0"), Update Every Frame(Eye Position(Local Player) + (
+			Global._textCoord - Eye Position(Local Player)) / 2 * (100 / Distance Between(Eye Position(Local Player), Global._textCoord))),
+			4, Do Not Clip, Visible To Position and String, Color(White), Default Visibility);
+		disabled Create In-World Text(All Players(All Teams), Custom String(" I"), Update Every Frame(Eye Position(Local Player) + (
+			Global._textCoord - Eye Position(Local Player)) / Distance Between(Eye Position(Local Player), Global._textCoord) * 50), 4,
+			Do Not Clip, Visible To Position and String, Color(White), Default Visibility);
+		disabled Create In-World Text(All Players(All Teams), Custom String(" I"), Update Every Frame(Eye Position(Local Player) + (
+			Global._textCoord - Eye Position(Local Player)) / Distance Between(Eye Position(Local Player), Global._textCoord)
+			* 50 + Down * Y Component Of(Position Of(Local Player)) * (4 / 50)), 4, Do Not Clip, Visible To Position and String, Color(
+			White), Default Visibility);
+		disabled Create Effect(All Players(All Teams), Sphere, Color(White), Update Every Frame(World Vector Of(Vector(0, -3, 5), Local Player,
+			Rotation) + Eye Position(Local Player)), 0.300, Visible To Position and Radius);
+		"left of player"
+		disabled Create Effect(All Players(All Teams), Sphere, Color(White), Update Every Frame(Cross Product(World Vector Of(Left, Local Player,
+			Rotation), World Vector Of(Up, Local Player, Rotation)) + Eye Position(Local Player)), 0.100, Visible To Position and Radius);
+		"down to direction"
+		disabled Create Effect(All Players(All Teams), Sphere, Color(White), Update Every Frame(Eye Position(Local Player) + Cross Product(
+			World Vector Of(Left, Local Player, Rotation), Normalize(Global._textCoord - Eye Position(Local Player)))), 0.100,
+			Visible To Position and Radius);
+		disabled Create In-World Text(All Players(All Teams), Custom String(" I"), Update Every Frame(Global._textCoord + Cross Product(
+			World Vector Of(Left, Local Player, Rotation), Normalize(Global._textCoord - Eye Position(Local Player)))), 4, Do Not Clip,
+			Visible To Position and String, Color(White), Default Visibility);
+		"Down to direction (with L dependence)"
+		disabled Create In-World Text(All Players(All Teams), Custom String(" I"), Update Every Frame(Global._textCoord + Cross Product(
+			World Vector Of(Left, Local Player, Rotation), Normalize(Global._textCoord - Eye Position(Local Player))) * Y Component Of(
+			Eye Position(Local Player)) * (4 / 50)), 4, Do Not Clip, Visible To and Position, Color(White), Default Visibility);
+		"Down to direction (with Y, D(X,Z) dependence)"
+		Create In-World Text(All Players(All Teams), Custom String("0"), Update Every Frame(Global._textCoord + Cross Product(
+			World Vector Of(Left, Local Player, Rotation), Normalize(Global._textCoord - Eye Position(Local Player))) * (Y Component Of(
+			Eye Position(Local Player)) * (4 / 50) + Dot Product(World Vector Of(Forward, Local Player, Rotation),
+			Global._textCoord - Position Of(Local Player)) * (1 / 40))), 4, Do Not Clip, Visible To and Position, Color(White),
+			Default Visibility);
+	}
+}
