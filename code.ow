@@ -3,7 +3,7 @@ settings
 	main
 	{
 		Description: "This is classical minesweeper game\r\n\r\nShoot to the closed cell to start the game. First shoot always opens cell with zero.\r\nUse 'Primary fire' to open cell, 'Secondary fire' to put flag or to open cells around opened cell.\r\nPress 'F' to teleport into the yellow zone and 'Crouch' to restart the game.\r\nAll other features you can find on left-top of screen. Enjoy ;)\r\n\r\nFill free to write to me btag: mnogom#2742\r\nhttps://github.com/mnogom/overwatch-minesweeper"
-		Mode Name: "Minesweeper"
+		Mode Name: "Minesweeper v0.47r"
 	}
 
 	lobby
@@ -111,7 +111,6 @@ variables
 		36: gameStateInProgress
 		37: gameStateLost
 		38: gameStateWin
-		39: gameStateInit
 		40: cellStateOpen
 		41: killer
 		42: fieldCellsWithMines
@@ -175,12 +174,12 @@ rule("Init game states")
 
 	actions
 	{
-		Global.gameStateNotStarted = 0;
-		Global.gameStateInProgress = 1;
-		Global.gameStateLost = 2;
-		Global.gameStateWin = 3;
+		Global.gameStateNotStarted = 1;
+		Global.gameStateInProgress = 2;
+		Global.gameStateLost = 3;
+		Global.gameStateWin = 4;
 		"Set initial state"
-		Global.currentGameState = Global.gameStateInit;
+		Global.currentGameState = Global.gameStateNotStarted;
 	}
 }
 
@@ -244,7 +243,7 @@ rule("Create hints")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -283,7 +282,7 @@ rule("Level")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -308,7 +307,7 @@ rule("Drop lose condition")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -326,7 +325,7 @@ rule("Drop timer")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -345,7 +344,7 @@ rule("Drop flag counter")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -363,7 +362,7 @@ rule("Meshgrid field coordinates (fieldCoordinates, fieldCloseCells)")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -395,7 +394,7 @@ rule("Create field UI")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -442,7 +441,7 @@ rule("Stats")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -473,7 +472,7 @@ rule("Init projectiles")
 
 	conditions
 	{
-		Global.currentGameState == Global.gameStateInit;
+		Global.currentGameState == Global.gameStateNotStarted;
 	}
 
 	actions
@@ -486,24 +485,6 @@ rule("Init projectiles")
 		Event Player.projectileCurrentPosition = Global.projectileHiddenPosition;
 		Create Effect(All Players(All Teams), Orb, Global.projectileColorByTypes[Event Player.projectileCurrentType],
 			Event Player.projectileCurrentPosition, 1, Visible To Position Radius and Color);
-	}
-}
-
-rule("Game states // Switch state after init")
-{
-	event
-	{
-		Ongoing - Global;
-	}
-
-	conditions
-	{
-		Global.currentGameState == Global.gameStateInit;
-	}
-
-	actions
-	{
-		Global.currentGameState = Global.gameStateNotStarted;
 	}
 }
 
@@ -944,7 +925,6 @@ rule("Restart")
 
 	conditions
 	{
-		Global.currentGameState != Global.gameStateInit;
 		Global.currentGameState != Global.gameStateNotStarted;
 		Global.calculating == False;
 		Is Crouching(Event Player) == True;

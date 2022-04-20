@@ -29,34 +29,34 @@ This is a classic game - [minesweeper](https://en.wikipedia.org/wiki/Minesweeper
 10. Statistics
 11. You can play in co-op, but because of this can cause errors with the server or rendering elements
 
-### Images & Videos
-#### 1. Game play video (Win)
+### Videos (youtube)
+#### 1. [Game play video (Win)](https://youtu.be/xQJwK9vj_e4)
 [![Game play video (win)](https://img.youtube.com/vi/xQJwK9vj_e4/0.jpg)](https://youtu.be/xQJwK9vj_e4)
 
-#### 2. Game play video (Lose)
+#### 2. [Game play video (Lose)](https://youtu.be/MOFW_uAfurQ)
 [![Game play video (lose)](https://img.youtube.com/vi/MOFW_uAfurQ/0.jpg)](https://youtu.be/MOFW_uAfurQ)
 
-#### 3. Game not started
+### Images
+#### 1. Game not started
 <img alt="game-not-started" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/game-not-started.jpg" width="480">
 
-#### 4. Game in progress
+#### 2. Game in progress
 <img alt="game-in-progress" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/game-in-progress.jpg" width="480">
 
-#### 5. Game lost
+#### 3. Game lost
 <img alt="game-lost" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/game-lost.jpg" width="480">
 
-#### 6. Stats
+#### 4. Stats
 <img alt="stats" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/stats.jpg" width="480">
 
-#### 7. Top view
+#### 5. Top view
 <img alt="top-preview" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/top-preview.jpg" width="480">
 
-#### 8. Control panel
+#### 6. Control panel
 <img alt="controls" src="https://github.com/mnogom/overwatch-minesweeper/blob/main/examples/controls.jpg" width="480">
 
 ### How its work
 #### Game states:
-* `Game state init`
 * `Game state not started`
 * `Game state in progress`
 * `Game state lost`
@@ -64,11 +64,11 @@ This is a classic game - [minesweeper](https://en.wikipedia.org/wiki/Minesweeper
 
 On `server starting`:
 * Setup all global variables
-* Set Current status to game state init
+* Set Current status to `Game not started`
 
+Then `Cast rule for projectile usage`
 
-
-On `game state init`:
+On `game not started`:
 * Create HUD hints
 * Set HUD with level
 * Drop lose condition
@@ -78,10 +78,6 @@ On `game state init`:
 * Create action spheres, field borders, states
 * Init projectile for each player
 * Switch current status to `Game not started`
-
-Then `Cast rule for projectile usage`
-
-On `game not started`:
 * User can increase or decrease mines count
 * Player open first cell
 * If player hit the cell on the field => generate field. First hit always open cell with number `0`
@@ -111,14 +107,14 @@ On `Going`
 
 Then `Destroy projctile`
 
-*Subroutines:*
+**Subroutines:**
 1. generateField: Get first cell -> find neighbors -> generate random mine patterns (mine position != position of first cell or neighbors)
 2. getNeighbors: Find neighbors around `getNeighborsArg` and place to `getNeighborsOut`
 3. findProjectileHitIndex: Find index of cell that projectile hit
 4. openCell: If projectile hit cell with number != 0 -> call `_openSingleCell` otherwise call `_openStackCell`
 5. _openSingleCell: Open single cell
 6. _openStackCell: Open stack cells
-7. flagCell: Toggle flag if cell is closed, Open neighbors if cell is closed and number of it <= count of flags around
+7. flagCell: Toggle flag if cell is closed, Open neighbors if cell is opened and number of it <= count of flags around
 8. showAllMines: Show all mines. Show right placed flags, Show mistake, Show all not flagged mines
 9. dropStats: drop personal best time, wins count, loses count
 
@@ -128,7 +124,7 @@ Then `Destroy projctile`
                     -> else -> create stack of cells -> for each -> open cell
 ```
 ### Snippets
-In this project, I encountered that the text and icons start to float when the play)er moves. To solve this problem, I tried to recalculate the coordinates of the text and icons according to the player's position through some proportions. As a result, I got the following formula:
+In this project, I encountered that the text and icons start to float when the player moves. To solve this problem, I tried to recalculate the coordinates of the text and icons according to the player's position through some proportions. As a result, I got the following formula:
 
 <img src="https://latex.codecogs.com/svg.image?\overrightarrow{V_c'}&space;=&space;\overrightarrow{V_c}&plus;\left&space;[&space;\overrightarrow{L_w}&space;\times&space;\left&space;(&space;\overrightarrow{V_c}&space;-&space;\overrightarrow{P_e}&space;\right&space;)&space;\right&space;]&space;\left&space;[&space;\dfrac{4}{50}&space;P^y_e&plus;\dfrac{1}{40}&space;\left&space;(&space;\overrightarrow{F_w}&space;\cdot&space;\left&space;(&space;\overrightarrow{V_c}&space;-&space;\overrightarrow{P_0}&space;\right&space;)&space;\right&space;)&space;\right&space;]">
 where:
@@ -142,4 +138,22 @@ where:
 <span><img src="https://latex.codecogs.com/svg.image?\overrightarrow{P_0}"> - Position of local player</span>
 
 <span><img src="https://latex.codecogs.com/svg.image?P^y_e"> - Y component of player eye position</span> \
-<span><img src="https://latex.codecogs.com/svg.image?\overrightarrow{F_w}"> - Forward to player in world coordinates `World Vector(Forward, Local Player, Rotation`)</span>
+<span><img src="https://latex.codecogs.com/svg.image?\overrightarrow{F_w}"> - Forward to player in world coordinates `World Vector(Forward, Local Player, Rotation)`</span>
+
+In workshop:
+```
+Create In-World Text(
+    All Players(All Teams),
+    Event Player._fieldCellNumber,
+    Update Every Frame(
+        Evaluate Once(Global.fieldCoordinates[Event Player._cellToOpen]) + Cross Product(World Vector Of(Left, Local Player, Rotation), Normalize(
+        Evaluate Once(Global.fieldCoordinates[Event Player._cellToOpen]) - Eye Position(Local Player))) * (Y Component Of(Eye Position(
+        Local Player)) * (4 / 50) + Dot Product(World Vector Of(Forward, Local Player, Rotation), Evaluate Once(
+        Global.fieldCoordinates[Event Player._cellToOpen]) - Position Of(Local Player)) * (1 / 40))),
+    2,
+    Do Not Clip,
+    Visible To and Position,
+    Global.colorOfNumbers[Event Player._fieldCellNumber],
+    Default Visibility
+);
+```
